@@ -1,0 +1,9 @@
+services:
+  app: # 백엔드 서버
+    build: .
+    container_name: ide-app
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # 👈 핵심: 호스트의 도커 엔진 권한을 앱에 부여
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock # 앱이 소켓 위치를 알 수 있게 설정
+    # ... 나머지 포트, 네트워크 설정
