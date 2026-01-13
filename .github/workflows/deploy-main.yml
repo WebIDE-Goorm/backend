@@ -60,7 +60,7 @@ jobs:
             echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
             echo "JWT_ACCESS_EXP=${{ secrets.JWT_ACCESS_EXP }}" >> .env
-            echo "IMAGE_NAME=${{ secret.IMAGE_NAME }}" >> .env
+            echo "IMAGE_NAME=${{ secrets.IMAGE_NAME }}" >> .env
 
             sudo docker compose pull
             sudo docker compose up -d
