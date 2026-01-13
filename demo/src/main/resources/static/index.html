@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Realtime Compiler Console</title>
+  <style>
+    :root {
+      --bg-1: #f3efe7;
+      --bg-2: #d9e7e2;
+      --ink: #1e1e1e;
+      --muted: #586069;
+      --panel: #fbfaf8;
+      --panel-2: #f2efe8;
+      --accent: #0f6d6b;
+      --accent-2: #eb7a3c;
+      --line: #cfd5d1;
+      --shadow: 0 20px 45px rgba(18, 29, 28, 0.12);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(circle at 10% 20%, rgba(235, 122, 60, 0.15), transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(15, 109, 107, 0.15), transparent 40%),
+        linear-gradient(140deg, var(--bg-1), var(--bg-2));
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: repeating-linear-gradient(
+        120deg,
+        rgba(30, 30, 30, 0.03) 0px,
+        rgba(30, 30, 30, 0.03) 1px,
+        transparent 1px,
+        transparent 12px
+      );
+      pointer-events: none;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+      position: relative;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      gap: 16px;
+    }
+
+    h1 {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      backdrop-filter: blur(6px);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #d44;
+      box-shadow: 0 0 10px rgba(212, 68, 68, 0.5);
+    }
+
+    .status.connected .status-dot {
+      background: #3bb273;
+      box-shadow: 0 0 12px rgba(59, 178, 115, 0.5);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 22px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .panel.secondary {
+      background: var(--panel-2);
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .editor {
+      flex: 1;
+      min-height: 380px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #0f1412;
+      color: #f2f4f0;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.95rem;
+      padding: 16px;
+      resize: vertical;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #f8f7f4;
+      box-shadow: 0 12px 24px rgba(15, 109, 107, 0.25);
+    }
+
+    button.secondary {
+      background: #1f1f1f;
+      color: #f7f7f7;
+    }
+
+    button.ghost {
+      background: transparent;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      color: var(--ink);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .terminal {
+      flex: 1;
+      min-height: 320px;
+      background: #111311;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #f4f3ef;
+      padding: 16px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.92rem;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .line.stdout {
+      color: #f4f3ef;
+    }
+
+    .line.stderr {
+      color: #ffb485;
+    }
+
+    .line.meta {
+      color: #7dd3c8;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .input-row input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      font-size: 0.95rem;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .footer {
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Realtime Compiler Console</h1>
+        <div class="footer">WebSocket playground for compile + stdin/out.</div>
+      </div>
+      <div id="status" class="status">
+        <span class="status-dot"></span>
+        <span id="status-text">Disconnected</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Source</h2>
+        <textarea id="code" class="editor" spellcheck="false">
+public class Main {
+  public static void main(String[] args) throws Exception {
+    java.util.Scanner sc = new java.util.Scanner(System.in);
+    String line = sc.nextLine();
+    System.out.println("echo: " + line);
+  }
+}
+        </textarea>
+        <div class="toolbar">
+          <button id="run" class="primary">Run</button>
+          <button id="stop" class="secondary">Stop</button>
+          <button id="clear" class="ghost">Clear Output</button>
+        </div>
+      </div>
+
+      <div class="panel secondary">
+        <h2>Terminal</h2>
+        <div id="terminal" class="terminal"></div>
+        <div class="input-row">
+          <input id="stdin" type="text" placeholder="Type stdin here..." />
+          <button id="send" class="primary">Send</button>
+        </div>
+        <label class="toggle">
+          <input id="append-newline" type="checkbox" checked />
+          Append newline to input
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("status-text");
+    const terminal = document.getElementById("terminal");
+    const codeEl = document.getElementById("code");
+    const stdinEl = document.getElementById("stdin");
+    const appendNewlineEl = document.getElementById("append-newline");
+    const runBtn = document.getElementById("run");
+    const stopBtn = document.getElementById("stop");
+    const clearBtn = document.getElementById("clear");
+    const sendBtn = document.getElementById("send");
+
+    let socket;
+    let running = false;
+
+    function wsUrl() {
+      const scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
+      return scheme + window.location.host + "/ws/compile";
+    }
+
+    function connect() {
+      socket = new WebSocket(wsUrl());
+
+      socket.addEventListener("open", () => {
+        statusEl.classList.add("connected");
+        statusText.textContent = "Connected";
+        appendLine("meta", "ws connected");
+      });
+
+      socket.addEventListener("close", () => {
+        statusEl.classList.remove("connected");
+        statusText.textContent = "Disconnected";
+        appendLine("meta", "ws disconnected");
+      });
+
+      socket.addEventListener("message", (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleMessage(msg);
+        } catch (err) {
+          appendLine("stderr", "invalid message: " + event.data);
+        }
+      });
+    }
+
+    function ensureSocket() {
+      if (!socket || socket.readyState === WebSocket.CLOSED) {
+        connect();
+      }
+    }
+
+    function appendLine(type, text) {
+      const span = document.createElement("span");
+      span.className = "line " + type;
+      span.textContent = text;
+      terminal.appendChild(span);
+      terminal.appendChild(document.createElement("br"));
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function appendRaw(type, text) {
+      const span = document.createElement("span");
+      span.className = "line " + type;
+      span.textContent = text;
+      terminal.appendChild(span);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function handleMessage(msg) {
+      if (msg.type === "output") {
+        const stream = msg.stream === "stderr" ? "stderr" : "stdout";
+        appendRaw(stream, msg.data || "");
+        return;
+      }
+      if (msg.type === "result") {
+        running = false;
+        const stage = msg.stage || "run";
+        const perf = msg.performance != null ? msg.performance + "ms" : "-";
+        const summary = `[result] stage=${stage} result=${msg.result} time=${perf}`;
+        appendLine("meta", summary);
+        if (msg.SystemOut) {
+          appendLine("stderr", msg.SystemOut);
+        }
+        if (msg.return != null) {
+          appendLine("stdout", "return: " + msg.return);
+        }
+        return;
+      }
+      if (msg.type === "error") {
+        running = false;
+        appendLine("stderr", msg.message || "error");
+        return;
+      }
+    }
+
+    runBtn.addEventListener("click", () => {
+      ensureSocket();
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        appendLine("stderr", "ws not connected");
+        return;
+      }
+      if (running) {
+        appendLine("stderr", "execution already running");
+        return;
+      }
+      const payload = {
+        type: "start",
+        code: codeEl.value
+      };
+      socket.send(JSON.stringify(payload));
+      running = true;
+      appendLine("meta", "start sent");
+    });
+
+    stopBtn.addEventListener("click", () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "stop" }));
+        appendLine("meta", "stop sent");
+      }
+    });
+
+    clearBtn.addEventListener("click", () => {
+      terminal.textContent = "";
+    });
+
+    sendBtn.addEventListener("click", () => {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        appendLine("stderr", "ws not connected");
+        return;
+      }
+      const value = stdinEl.value;
+      if (!value) {
+        return;
+      }
+      const data = appendNewlineEl.checked ? value + "\n" : value;
+      socket.send(JSON.stringify({ type: "input", data }));
+      stdinEl.value = "";
+    });
+
+    stdinEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendBtn.click();
+      }
+    });
+
+    connect();
+  </script>
+</body>
+</html>
