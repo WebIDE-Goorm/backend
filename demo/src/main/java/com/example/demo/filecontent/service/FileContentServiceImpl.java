@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,6 +52,13 @@ public class FileContentServiceImpl implements FileContentService {
     // 조회
     @Override
     public FileContentResponseDto getFileContent(Long fileId) {
+        FileEntity file = fileRepository.findByIdAndIsDeletedFalse(fileId)
+            .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다. (fileId: " + fileId + ")"));
+
+        if (file.getType() != FileEntity.FileType.FILE) {
+            throw new RuntimeException("폴더는 내용을 조회할 수 없습니다. (fileId: " + fileId + ")");
+        }
+
         FileContent fileContent = fileContentRepository.findFirstByFileIdOrderByVersionDesc(fileId)
             .orElseThrow(() -> new RuntimeException("파일 내용을 찾을 수 없습니다. (fileId: " + fileId + ")"));
 

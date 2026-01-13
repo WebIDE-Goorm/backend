@@ -42,6 +42,10 @@ public class FileServiceImpl implements FileService {
             }
         }
 
+        if (fileRepository.existsByProjectIdAndParentIdAndNameAndIsDeletedFalse(requestDto.getProjectId(),requestDto.getParentId(), requestDto.getName())) {
+            throw new RuntimeException("같은 이름의 파일이 이미 존재합니다. (name: " + requestDto.getName() + ")");
+        }
+
         FileEntity file = FileEntity.create(
             requestDto.getProjectId(),
             requestDto.getParentId(),
@@ -99,6 +103,10 @@ public class FileServiceImpl implements FileService {
     public FileResponseDto updateFileName(Long fileId, UpdateFileNameRequestDto requestDto) {
         FileEntity file = fileRepository.findByIdAndIsDeletedFalse(fileId)
             .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다. (id: " + fileId + ")"));
+
+        if (fileRepository.existsByProjectIdAndParentIdAndNameAndIsDeletedFalse(file.getProjectId(),file.getParentId(), requestDto.getName())) {
+            throw new RuntimeException("같은 이름의 파일이 이미 존재합니다. (name: " + requestDto.getName() + ")");
+        }
 
         file.updateName(requestDto.getName());
 
