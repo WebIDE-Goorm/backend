@@ -5,6 +5,11 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
   jpa:
+    show-sql: true        # SQL 쿼리 출력
+    properties:
+      hibernate:
+        format_sql: true  # 보기 좋게 포맷
+        use_sql_comments: true  # 쿼리 주석 표시
     hibernate:
       ddl-auto: update
 
