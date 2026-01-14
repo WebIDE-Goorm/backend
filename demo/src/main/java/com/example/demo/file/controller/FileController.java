@@ -5,6 +5,7 @@ import com.example.demo.file.dto.request.UpdateFileNameRequestDto;
 import com.example.demo.file.dto.response.FileResponseDto;
 import com.example.demo.file.dto.response.FileTreeNodeDto;
 import com.example.demo.file.service.FileService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "Authorization")
 public class FileController {
 
     private final FileService fileService;

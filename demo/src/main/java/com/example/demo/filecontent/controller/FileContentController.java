@@ -3,6 +3,7 @@ package com.example.demo.filecontent.controller;
 import com.example.demo.filecontent.dto.request.SaveFileContentRequestDto;
 import com.example.demo.filecontent.dto.response.FileContentResponseDto;
 import com.example.demo.filecontent.service.FileContentService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/file-contents")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "Authorization")
 public class FileContentController {
 
     private final FileContentService fileContentService;

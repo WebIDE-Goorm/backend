@@ -3,6 +3,7 @@ package com.example.demo.project.controller;
 import com.example.demo.project.dto.request.CreateProjectRequestDto;
 import com.example.demo.project.dto.response.ProjectResponseDto;
 import com.example.demo.project.service.ProjectService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "Authorization")
 public class ProjectController {
 
     private final ProjectService projectService;

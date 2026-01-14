@@ -3,6 +3,7 @@ package com.example.demo.project.controller;
 import com.example.demo.project.dto.request.AddProjectMemberRequestDto;
 import com.example.demo.project.dto.response.ProjectMemberResponseDto;
 import com.example.demo.project.service.ProjectMemberService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/projects/{projectId}/members")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "Authorization")
 public class ProjectMemberController {
 
     private final ProjectMemberService projectMemberService;
