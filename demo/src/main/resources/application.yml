@@ -8,3 +8,8 @@ spring:
 
 server:
   port : 8080
+
+execution:
+  docker:
+    python-image: python:3.11-alpine
+    java-image: eclipse-temurin:17-jdk

@@ -1,7 +1,9 @@
 package com.example.demo.execution.websocket;
 
-import com.example.demo.execution.builder.CompileBuilder;
 import com.example.demo.execution.dto.response.ApiResponseResult;
+import com.example.demo.execution.execute.ScriptExecutionResult;
+import com.example.demo.execution.execute.ScriptExecutor;
+import com.example.demo.execution.model.LanguageType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -27,13 +29,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * WebSocket realtime execution handler.
  *
  * Message protocol:
- * - start: {"type":"start","code":"...","params":[...]}
+ * - start: {"type":"start","code":"...","params":[...],"language":"java|python"} // params are argv
  * - input: {"type":"input","data":"..."} // data may include newlines
  * - stop: {"type":"stop"}
  *
  * Responses:
  * - output: {"type":"output","stream":"stdout|stderr","data":"..."}
- * - result: {"type":"result","result":"ApiResponseResult text","return":...,"SystemOut":"...","performance":123,"stage":"compile|run"}
+ * - result: {"type":"result","result":"ApiResponseResult text","stdout":"...","stderr":"...","exitCode":0,"SystemOut":"...","performance":123,"stage":"run"}
  * - error: {"type":"error","message":"..."}
  */
 @Slf4j
@@ -41,12 +43,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class RealtimeCompileHandler extends TextWebSocketHandler {
 	private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<Map<String, Object>>() {};
 	
-	private final CompileBuilder compileBuilder;
+	private final ScriptExecutor scriptExecutor;
 	private final ObjectMapper objectMapper;
 	private final Map<String, SessionState> sessions = new ConcurrentHashMap<>();
 	
-	public RealtimeCompileHandler(CompileBuilder compileBuilder, ObjectMapper objectMapper) {
-		this.compileBuilder = compileBuilder;
+	public RealtimeCompileHandler(ScriptExecutor scriptExecutor, ObjectMapper objectMapper) {
+		this.scriptExecutor = scriptExecutor;
 		this.objectMapper = objectMapper;
 	}
 	
@@ -107,7 +109,8 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 		}
 		
 		Object[] params = parseParams(payload.get("params"));
-		state.start(compileBuilder, code, params);
+		LanguageType language = LanguageType.from(payload.get("language"));
+		state.start(scriptExecutor, language, code, params);
 	}
 	
 	private void handleInput(SessionState state, Map<String, Object> payload) {
@@ -149,6 +152,7 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 		private final ExecutorService executor = Executors.newSingleThreadExecutor();
 		private final AtomicBoolean running = new AtomicBoolean(false);
 		private Future<?> currentTask;
+		private Process currentProcess;
 		private PipedInputStream inputStream;
 		private PipedOutputStream inputWriter;
 		private SessionOutputStream stdout;
@@ -159,7 +163,7 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 			this.objectMapper = objectMapper;
 		}
 		
-		void start(CompileBuilder compileBuilder, String code, Object[] params) {
+		void start(ScriptExecutor scriptExecutor, LanguageType language, String code, Object[] params) {
 			if(!running.compareAndSet(false, true)) {
 				sendError("execution already in progress");
 				return;
@@ -179,30 +183,21 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 			currentTask = executor.submit(() -> {
 				long beforeTime = System.currentTimeMillis();
 				try {
-					Object compiled = compileBuilder.compileCode(code);
-					if(compiled instanceof String) {
-						sendResult(ApiResponseResult.FAIL.getText(), null, (String) compiled, "compile", 0L);
-						return;
-					}
-					if(compiled == null) {
-						sendResult(ApiResponseResult.FAIL.getText(), null, "compile failed", "compile", 0L);
-						return;
-					}
-					
-					Map<String, Object> execResult = compileBuilder.runObjectWithStreams(compiled, params, inputStream, stdout, stderr);
+					ScriptExecutionResult result = scriptExecutor.execute(language, code, params, inputStream, stdout, stderr, this::setProcess);
 					long afterTime = System.currentTimeMillis();
-					
-					boolean success = Boolean.TRUE.equals(execResult.get("result"));
-					if(success) {
-						sendResult(ApiResponseResult.SUCEESS.getText(), execResult.get("return"), null, "run", afterTime - beforeTime);
-					} else {
-						String message = errorMessage(execResult.get("error"));
-						sendResult(ApiResponseResult.FAIL.getText(), null, message, "run", afterTime - beforeTime);
-					}
+					String message = result.isSuccess() ? null : (result.getErrorMessage() != null ? result.getErrorMessage() : "execution failed");
+					sendResult(result.isSuccess() ? ApiResponseResult.SUCEESS.getText() : ApiResponseResult.FAIL.getText(),
+							message,
+							"run",
+							afterTime - beforeTime,
+							result.getExitCode(),
+							result.getStdout(),
+							result.getStderr());
 				} catch (Exception e) {
 					log.error("[RealtimeCompileHandler] execution error", e);
 					sendError("execution failed");
 				} finally {
+					stopProcess();
 					flushQuietly(stdout);
 					flushQuietly(stderr);
 					closeInput();
@@ -231,12 +226,24 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 			if(currentTask != null) {
 				currentTask.cancel(true);
 			}
+			stopProcess();
 			closeInput();
 		}
 		
 		void close() {
 			stop();
 			executor.shutdownNow();
+		}
+		
+		private void setProcess(Process process) {
+			this.currentProcess = process;
+		}
+		
+		private void stopProcess() {
+			if(currentProcess != null && currentProcess.isAlive()) {
+				currentProcess.destroyForcibly();
+			}
+			currentProcess = null;
 		}
 		
 		void sendOutput(String stream, String data) {
@@ -247,15 +254,15 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 			sendMessage(payload);
 		}
 		
-		void sendResult(String result, Object returnValue, String systemOut, String stage, long performanceMs) {
+		void sendResult(String result, String systemOut, String stage, long performanceMs, int exitCode, String stdout, String stderr) {
 			Map<String, Object> payload = new HashMap<String, Object>();
 			payload.put("type", "result");
 			payload.put("result", result);
 			payload.put("stage", stage);
 			payload.put("performance", performanceMs);
-			if(returnValue != null) {
-				payload.put("return", returnValue);
-			}
+			payload.put("exitCode", exitCode);
+			payload.put("stdout", stdout);
+			payload.put("stderr", stderr);
 			if(systemOut != null) {
 				payload.put("SystemOut", systemOut);
 			}
@@ -304,13 +311,6 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 					}
 				}
 			}
-		}
-		
-		private static String errorMessage(Object error) {
-			if(error == null) {
-				return "execution failed";
-			}
-			return error.toString();
 		}
 		
 		private static void flushQuietly(OutputStream stream) {

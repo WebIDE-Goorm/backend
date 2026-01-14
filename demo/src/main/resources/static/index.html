@@ -142,6 +142,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      align-items: center;
     }
 
     button {
@@ -168,6 +169,16 @@
     button.ghost {
       background: transparent;
       border: 1px solid rgba(0, 0, 0, 0.2);
+      color: var(--ink);
+    }
+
+    select {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 9px 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: #ffffff;
       color: var(--ink);
     }
 
@@ -270,19 +281,15 @@
     <section class="grid">
       <div class="panel">
         <h2>Source</h2>
-        <textarea id="code" class="editor" spellcheck="false">
-public class Main {
-  public static void main(String[] args) throws Exception {
-    java.util.Scanner sc = new java.util.Scanner(System.in);
-    String line = sc.nextLine();
-    System.out.println("echo: " + line);
-  }
-}
-        </textarea>
+        <textarea id="code" class="editor" spellcheck="false"></textarea>
         <div class="toolbar">
           <button id="run" class="primary">Run</button>
           <button id="stop" class="secondary">Stop</button>
           <button id="clear" class="ghost">Clear Output</button>
+          <select id="language">
+            <option value="java" selected>Java</option>
+            <option value="python">Python</option>
+          </select>
         </div>
       </div>
 
@@ -308,13 +315,29 @@ public class Main {
     const codeEl = document.getElementById("code");
     const stdinEl = document.getElementById("stdin");
     const appendNewlineEl = document.getElementById("append-newline");
+    const languageEl = document.getElementById("language");
     const runBtn = document.getElementById("run");
     const stopBtn = document.getElementById("stop");
     const clearBtn = document.getElementById("clear");
     const sendBtn = document.getElementById("send");
 
+    const templates = {
+      java: `public class Main {
+  public static void main(String[] args) throws Exception {
+    java.util.Scanner sc = new java.util.Scanner(System.in);
+    String line = sc.nextLine();
+    System.out.println("echo: " + line);
+  }
+}`,
+      python: `line = input()
+print("echo:", line)`
+    };
+
     let socket;
     let running = false;
+    let currentTemplate = templates.java;
+
+    codeEl.value = currentTemplate;
 
     function wsUrl() {
       const scheme = window.location.protocol === "https:" ? "wss://" : "ws://";
@@ -379,7 +402,8 @@ public class Main {
         running = false;
         const stage = msg.stage || "run";
         const perf = msg.performance != null ? msg.performance + "ms" : "-";
-        const summary = `[result] stage=${stage} result=${msg.result} time=${perf}`;
+        const exitCode = msg.exitCode != null ? msg.exitCode : "-";
+        const summary = `[result] stage=${stage} result=${msg.result} exitCode=${exitCode} time=${perf}`;
         appendLine("meta", summary);
         if (msg.SystemOut) {
           appendLine("stderr", msg.SystemOut);
@@ -408,7 +432,8 @@ public class Main {
       }
       const payload = {
         type: "start",
-        code: codeEl.value
+        code: codeEl.value,
+        language: languageEl.value
       };
       socket.send(JSON.stringify(payload));
       running = true;
@@ -445,6 +470,14 @@ public class Main {
         event.preventDefault();
         sendBtn.click();
       }
+    });
+
+    languageEl.addEventListener("change", () => {
+      const nextTemplate = templates[languageEl.value] || "";
+      if (codeEl.value.trim() === currentTemplate.trim()) {
+        codeEl.value = nextTemplate;
+      }
+      currentTemplate = nextTemplate;
     });
 
     connect();

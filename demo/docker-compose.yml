@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  compiler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      EXECUTION_WORK_DIR: /tmp/compiler-exec
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/compiler-exec:/tmp/compiler-exec
