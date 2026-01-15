@@ -6,7 +6,7 @@ import com.example.demo.chat.dto.ChatMessageDto;
 import com.example.demo.chat.dto.ChatRoomDto;
 import com.example.demo.chat.entity.ChatRoom;
 import com.example.demo.chat.event.ChatMessageEvent;
-import com.example.demo.chat.producer.ChatEventProducer;
+import com.example.demo.chat.publisher.ChatEventPublisher;
 import com.example.demo.chat.repository.ChatMessageRepository;
 import com.example.demo.chat.repository.ChatRoomRepository;
 import com.example.demo.common.CustomException;
@@ -25,7 +25,7 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
-    private final ChatEventProducer eventProducer;
+    private final ChatEventPublisher eventPublisher;
 
     @Transactional
     public ChatRoomDto createRoom(String name) {
@@ -40,20 +40,16 @@ public class ChatService {
     }
 
     public void sendMessage(Long roomId, Long userId, String content) {
-        // 채팅방 존재 확인
         chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(ErrorMessage.CHAT_LOAD_ERROR));
 
-        // 사용자 존재 확인
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorMessage.USER_NOT_FOUND));
 
-        // 메시지 내용 검증
         if (content == null || content.trim().isEmpty()) {
             throw new CustomException(ErrorMessage.REQUIRED_FIELD);
         }
 
-        // 이벤트 생성 및 발행
         ChatMessageEvent event = new ChatMessageEvent(
                 roomId,
                 userId,
@@ -63,7 +59,7 @@ public class ChatService {
         );
 
         try {
-            eventProducer.publishMessage(event);
+            eventPublisher.publishMessage(event);
         } catch (Exception e) {
             throw new CustomException(ErrorMessage.CHAT_SEND_ERROR);
         }
@@ -79,7 +75,6 @@ public class ChatService {
     }
 
     public List<ChatMessageDto> getMessages(Long roomId) {
-        // 채팅방 존재 확인
         chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(ErrorMessage.CHAT_LOAD_ERROR));
 
@@ -95,11 +90,9 @@ public class ChatService {
     }
 
     public List<ChatMessageDto> searchMessages(Long roomId, String keyword) {
-        // 채팅방 존재 확인
         chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(ErrorMessage.CHAT_LOAD_ERROR));
 
-        // 검색어 검증
         if (keyword == null || keyword.trim().isEmpty()) {
             throw new CustomException(ErrorMessage.INVALID_INPUT);
         }
