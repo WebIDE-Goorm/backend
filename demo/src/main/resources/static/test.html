@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+<div id="connection-status">연결 상태: <span id="status">연결 중...</span></div>
+<hr>
+<div id="messages"></div>
+<hr>
+<input type="text" id="messageInput" placeholder="메시지 입력">
+<button onclick="sendMessage()">전송</button>
+
+<script>
+    let stompClient = null;
+
+    function connect() {
+        console.log('WebSocket 연결 시도...');
+        const socket = new SockJS('http://localhost:8080/ws-chat');
+        stompClient = Stomp.over(socket);
+
+        // 디버그 모드 활성화
+        stompClient.debug = function(str) {
+            console.log('STOMP DEBUG: ' + str);
+        };
+
+        stompClient.connect({}, function(frame) {
+            console.log('✓ WebSocket 연결 성공!');
+            console.log('Frame:', frame);
+            document.getElementById('status').textContent = '연결됨';
+            document.getElementById('status').style.color = 'green';
+
+            console.log('구독 시작: /topic/chat/1');
+            stompClient.subscribe('/topic/chat/1', function(message) {
+                console.log('==========================================');
+                console.log('✓ 메시지 수신!');
+                console.log('Raw message:', message);
+                console.log('Message body:', message.body);
+                console.log('==========================================');
+
+                try {
+                    const parsedMessage = JSON.parse(message.body);
+                    console.log('Parsed message:', parsedMessage);
+                    showMessage(parsedMessage);
+                } catch (e) {
+                    console.error('메시지 파싱 실패:', e);
+                }
+            });
+            console.log('✓ 구독 완료');
+
+        }, function(error) {
+            console.error('✗ WebSocket 연결 실패:', error);
+            document.getElementById('status').textContent = '연결 실패';
+            document.getElementById('status').style.color = 'red';
+        });
+    }
+
+    function sendMessage() {
+        const content = document.getElementById('messageInput').value;
+
+        if (!content.trim()) {
+            console.warn('빈 메시지는 전송할 수 없습니다');
+            return;
+        }
+
+        const message = {
+            roomId: 1,
+            userId: 1,
+            content: content
+        };
+
+        console.log('메시지 전송 시도:', message);
+
+        try {
+            stompClient.send("/app/chat/1", {}, JSON.stringify(message));
+            console.log('✓ 메시지 전송 완료');
+            document.getElementById('messageInput').value = '';
+        } catch (e) {
+            console.error('✗ 메시지 전송 실패:', e);
+        }
+    }
+
+    function showMessage(message) {
+        console.log('화면에 메시지 표시:', message);
+        const messagesDiv = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.textContent = `[${new Date().toLocaleTimeString()}] ${message.username || 'Unknown'}: ${message.content}`;
+        messageElement.style.padding = '5px';
+        messageElement.style.borderBottom = '1px solid #eee';
+        messagesDiv.appendChild(messageElement);
+
+        // 스크롤을 최신 메시지로
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // 엔터키로 전송
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    });
+
+    connect();
+</script>
+
+<style>
+    #messages {
+        height: 300px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+    }
+    #connection-status {
+        font-weight: bold;
+        padding: 10px;
+        background: #f0f0f0;
+    }
+</style>
+</body>
+</html>

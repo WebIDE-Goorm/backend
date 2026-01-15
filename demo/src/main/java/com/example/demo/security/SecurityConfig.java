@@ -41,11 +41,22 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/error", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(
-                                "/api/auth/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
+                                .requestMatchers("/error", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                                .requestMatchers(
+                                        "/api/auth/**",
+                                        "/v3/api-docs/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html",
+
+                                        "/api/chat/**",
+
+                                        "/ws-chat/**",
+                                        "/ws/**",
+                                        "/app/**"
+                                ).permitAll()
+                                .anyRequest().authenticated() // 그 외 모든 요청은 인증 필요
+                        //.anyRequest().permitAll() // 모든 요청 허용
+
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authAuthenticationEntryPoint));
@@ -56,9 +67,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("*"); // 모든 Origin 허용 (개발용)
+        config.addAllowedOriginPattern("http://localhost:63342"); // 모든 Origin 허용 (개발용)
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")); //OPTIONS     필수
         config.addAllowedHeader("*");        // 모든 헤더 허용
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
