@@ -1,5 +1,6 @@
 package com.example.demo.auth;
 
+import com.example.demo.common.ErrorMessage;
 import com.example.demo.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -34,7 +35,7 @@ public class AuthService {
     public void signUp(SignUpRequest request) {
         userRepository.findByUsername(request.getUsername())
                 .ifPresent(user -> {
-                            throw new IllegalArgumentException("Username is already taken!");
+                            throw new IllegalArgumentException(ErrorMessage.DUPLICATE_USER.getMessage());
                         }
                 );
 
