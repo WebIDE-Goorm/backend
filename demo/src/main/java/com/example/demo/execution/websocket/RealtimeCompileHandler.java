@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -47,7 +48,8 @@ public class RealtimeCompileHandler extends TextWebSocketHandler {
 	private final ObjectMapper objectMapper;
 	private final Map<String, SessionState> sessions = new ConcurrentHashMap<>();
 	
-	public RealtimeCompileHandler(ScriptExecutor scriptExecutor, ObjectMapper objectMapper) {
+	public RealtimeCompileHandler(ScriptExecutor scriptExecutor,
+			@Qualifier("executionObjectMapper") ObjectMapper objectMapper) {
 		this.scriptExecutor = scriptExecutor;
 		this.objectMapper = objectMapper;
 	}

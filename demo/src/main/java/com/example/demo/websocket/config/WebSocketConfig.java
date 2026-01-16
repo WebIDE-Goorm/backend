@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 /**
  * WebSocket 설정 클래스
  */
-@Configuration
+@Configuration("editorWebSocketConfig")
 @EnableWebSocket
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketConfigurer {
