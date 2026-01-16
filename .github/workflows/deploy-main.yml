@@ -67,6 +67,8 @@ jobs:
             echo "JWT_EXPIRATION_SECONDS=${{ secrets.JWT_EXPIRATION_SECONDS }}" >> .env
             echo "IMAGE_NAME=${{ secrets.IMAGE_NAME }}" >> .env
             echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
+            echo "REDIS_HOST=${{ secrets.REDIS_HOST }}" >> .env
+            echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> .env
 
             sudo docker compose pull
             sudo docker compose up -d

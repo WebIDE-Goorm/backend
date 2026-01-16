@@ -15,8 +15,8 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
       timeout: 3000ms
       lettuce:
         pool:
@@ -31,14 +31,6 @@ server:
 jwt:
   secret: ${JWT_SECRET}
   token-validity-in-seconds: ${JWT_EXPIRATION_SECONDS}
-
-logging:
-  level:
-    org.springframework.kafka: DEBUG
-    com.example.demo.chat.consumer: DEBUG
-
-allowed:
-  origins: "*" # 여기 프론트엔드 도메인이 들어가야함.
 
 execution:
   docker:
