@@ -1,5 +1,7 @@
 package com.example.demo.file.service;
 
+import com.example.demo.common.CustomException;
+import com.example.demo.common.ErrorMessage;
 import com.example.demo.file.dto.request.CreateFileRequestDto;
 import com.example.demo.file.dto.request.UpdateFileNameRequestDto;
 import com.example.demo.file.dto.response.FileResponseDto;
@@ -8,6 +10,7 @@ import com.example.demo.file.entity.FileEntity;
 import com.example.demo.file.repository.FileRepository;
 import com.example.demo.filecontent.repository.FileContentRepository;
 import com.example.demo.project.repository.ProjectRepository;
+import com.example.demo.project.service.ProjectMemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,33 +28,36 @@ public class FileServiceImpl implements FileService {
     private final FileRepository fileRepository;
     private final ProjectRepository projectRepository;
     private final FileContentRepository fileContentRepository;
+    private final ProjectMemberService projectMemberService;
 
     // 파일/폴더 생성
     @Override
     @Transactional
-    public FileResponseDto createFile(CreateFileRequestDto requestDto) {
+    public FileResponseDto createFile(CreateFileRequestDto requestDto, Long userId) {
+        projectMemberService.validateProjectMember(requestDto.getProjectId(), userId);
+        
         // Project 존재 여부 검증
         projectRepository.findById(requestDto.getProjectId())
-            .orElseThrow(() -> new RuntimeException("프로젝트를 찾을 수 없습니다. (projectId: " + requestDto.getProjectId() + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.PROJECT_NOT_FOUND));
 
         // 루트 디렉토리가 아니면 존재 여부 및 프로젝트 검증
         if (requestDto.getParentId() != null) {
             FileEntity parent = fileRepository.findByIdAndIsDeletedFalse(requestDto.getParentId())
-                .orElseThrow(() -> new RuntimeException("부모 폴더를 찾을 수 없습니다. (parentId: " + requestDto.getParentId() + ")"));
+                .orElseThrow(() -> new CustomException(ErrorMessage.PARENT_FOLDER_NOT_FOUND));
             
             // 같은 프로젝트인지 확인
             if (!parent.getProjectId().equals(requestDto.getProjectId())) {
-                throw new RuntimeException("부모 폴더가 다른 프로젝트에 속해 있습니다. (parentId: " + requestDto.getParentId() + ")");
+                throw new CustomException(ErrorMessage.PARENT_FOLDER_DIFFERENT_PROJECT);
             }
             
             // 부모가 폴더인지 확인
             if (parent.getType() != FileEntity.FileType.FOLDER) {
-                throw new RuntimeException("부모는 폴더여야 합니다. (parentId: " + requestDto.getParentId() + ")");
+                throw new CustomException(ErrorMessage.PARENT_NOT_FOLDER);
             }
         }
 
         if (fileRepository.existsByProjectIdAndParentIdAndNameAndIsDeletedFalse(requestDto.getProjectId(),requestDto.getParentId(), requestDto.getName())) {
-            throw new RuntimeException("같은 이름의 파일이 이미 존재합니다. (name: " + requestDto.getName() + ")");
+            throw new CustomException(ErrorMessage.FILE_ALREADY_EXISTS);
         }
 
         FileEntity file = FileEntity.create(
@@ -67,16 +73,20 @@ public class FileServiceImpl implements FileService {
     }
 
     @Override
-    public FileResponseDto getFile(Long fileId) {
+    public FileResponseDto getFile(Long fileId, Long userId) {
         FileEntity file = fileRepository.findByIdAndIsDeletedFalse(fileId)
-            .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다. (id: " + fileId + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.FILE_NOT_FOUND));
+
+        projectMemberService.validateProjectMember(file.getProjectId(), userId);
 
         return toResponseDto(file);
     }
 
     // 파일 트리 조회
     @Override
-    public List<FileTreeNodeDto> getFileTree(Long projectId) {
+    public List<FileTreeNodeDto> getFileTree(Long projectId, Long userId) {
+        projectMemberService.validateProjectMember(projectId, userId);
+        
         List<FileEntity> allFiles = fileRepository.findByProjectIdAndIsDeletedFalse(projectId);
 
         Map<Long, FileTreeNodeDto> fileMap = allFiles.stream()
@@ -108,9 +118,11 @@ public class FileServiceImpl implements FileService {
     // 파일명 수정
     @Override
     @Transactional
-    public FileResponseDto updateFileName(Long fileId, UpdateFileNameRequestDto requestDto) {
+    public FileResponseDto updateFileName(Long fileId, UpdateFileNameRequestDto requestDto, Long userId) {
         FileEntity file = fileRepository.findByIdAndIsDeletedFalse(fileId)
-            .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다. (id: " + fileId + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.FILE_NOT_FOUND));
+
+        projectMemberService.validateProjectMember(file.getProjectId(), userId);
 
         // 자기 자신을 제외하고 중복 체크
         if (fileRepository.existsByProjectIdAndParentIdAndNameAndIdNotAndIsDeletedFalse(
@@ -119,7 +131,7 @@ public class FileServiceImpl implements FileService {
             requestDto.getName(),
             fileId
         )) {
-            throw new RuntimeException("같은 이름의 파일이 이미 존재합니다. (name: " + requestDto.getName() + ")");
+            throw new CustomException(ErrorMessage.FILE_ALREADY_EXISTS);
         }
 
         file.updateName(requestDto.getName());
@@ -132,9 +144,11 @@ public class FileServiceImpl implements FileService {
     // 삭제
     @Override
     @Transactional
-    public void deleteFile(Long fileId) {
+    public void deleteFile(Long fileId, Long userId) {
         FileEntity file = fileRepository.findByIdAndIsDeletedFalse(fileId)
-            .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다. (id: " + fileId + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.FILE_NOT_FOUND));
+
+        projectMemberService.validateProjectMember(file.getProjectId(), userId);
 
         // 폴더인 경우 하위 파일/폴더도 재귀 삭제 진행
         if (file.getType() == FileEntity.FileType.FOLDER) {

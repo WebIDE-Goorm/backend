@@ -9,18 +9,18 @@ import java.util.List;
 
 public interface FileService {
     // 생성
-    FileResponseDto createFile(CreateFileRequestDto requestDto);
+    FileResponseDto createFile(CreateFileRequestDto requestDto, Long userId);
 
     // 조회
-    FileResponseDto getFile(Long fileId);
+    FileResponseDto getFile(Long fileId, Long userId);
 
     // 트리 조회
-    List<FileTreeNodeDto> getFileTree(Long projectId);
+    List<FileTreeNodeDto> getFileTree(Long projectId, Long userId);
 
     // 수정
-    FileResponseDto updateFileName(Long fileId, UpdateFileNameRequestDto requestDto);
+    FileResponseDto updateFileName(Long fileId, UpdateFileNameRequestDto requestDto, Long userId);
 
     // 삭제
-    void deleteFile(Long fileId);
+    void deleteFile(Long fileId, Long userId);
 }
 

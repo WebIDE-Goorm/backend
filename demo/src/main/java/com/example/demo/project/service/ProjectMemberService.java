@@ -23,4 +23,7 @@ public interface ProjectMemberService {
     
     // 초대 코드로 프로젝트 참여
     ProjectMemberResponseDto joinByInviteCode(String inviteCode, Long userId);
+    
+    // 프로젝트 멤버 여부 검증
+    void validateProjectMember(Long projectId, Long userId);
 }

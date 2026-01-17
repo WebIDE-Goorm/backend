@@ -6,12 +6,16 @@ import com.example.demo.filecontent.dto.response.FileContentResponseDto;
 import java.util.List;
 
 public interface FileContentService {
-    FileContentResponseDto saveFileContent(SaveFileContentRequestDto requestDto);
+    // 저장
+    FileContentResponseDto saveFileContent(SaveFileContentRequestDto requestDto, Long userId);
 
-    FileContentResponseDto getFileContent(Long fileId);
+    // 조회
+    FileContentResponseDto getFileContent(Long fileId, Long userId);
 
-    FileContentResponseDto getFileContentByVersion(Long fileId, Integer version);
+    // 버전별 조회
+    FileContentResponseDto getFileContentByVersion(Long fileId, Integer version, Long userId);
 
-    List<FileContentResponseDto> getFileContentHistory(Long fileId);
+    // 히스토리 조회
+    List<FileContentResponseDto> getFileContentHistory(Long fileId, Long userId);
 }
 
