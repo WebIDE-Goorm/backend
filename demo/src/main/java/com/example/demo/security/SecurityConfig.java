@@ -69,7 +69,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOriginPattern("http://localhost:63342"); // 모든 Origin 허용 (개발용)
+        config.addAllowedOriginPattern("*"); // 모든 Origin 허용 (개발용)
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")); //OPTIONS     필수
         config.addAllowedHeader("*");        // 모든 헤더 허용
         config.setAllowCredentials(true);
