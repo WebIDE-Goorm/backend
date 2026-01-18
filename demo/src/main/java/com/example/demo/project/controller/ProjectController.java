@@ -1,5 +1,6 @@
 package com.example.demo.project.controller;
 
+import com.example.demo.common.SecurityUtil;
 import com.example.demo.project.dto.request.CreateProjectRequestDto;
 import com.example.demo.project.dto.response.ProjectResponseDto;
 import com.example.demo.project.service.ProjectService;
@@ -7,6 +8,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,16 +20,23 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final SecurityUtil securityUtil;
 
     @PostMapping
-    public ResponseEntity<ProjectResponseDto> createProject(@RequestBody CreateProjectRequestDto requestDto) {
-        ProjectResponseDto response = projectService.createProject(requestDto);
+    public ResponseEntity<ProjectResponseDto> createProject(
+            @RequestBody CreateProjectRequestDto requestDto,
+            Authentication authentication) {
+        Long userId = securityUtil.getUserIdFromAuthentication(authentication);
+        ProjectResponseDto response = projectService.createProject(requestDto, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{projectId}")
-    public ResponseEntity<ProjectResponseDto> getProject(@PathVariable Long projectId) {
-        ProjectResponseDto response = projectService.getProject(projectId);
+    public ResponseEntity<ProjectResponseDto> getProject(
+            @PathVariable Long projectId,
+            Authentication authentication) {
+        Long userId = securityUtil.getUserIdFromAuthentication(authentication);
+        ProjectResponseDto response = projectService.getProject(projectId, userId);
         return ResponseEntity.ok(response);
     }
 
@@ -40,20 +49,32 @@ public class ProjectController {
     @PutMapping("/{projectId}")
     public ResponseEntity<ProjectResponseDto> updateProject(
             @PathVariable Long projectId,
-            @RequestBody CreateProjectRequestDto requestDto) {
-        ProjectResponseDto response = projectService.updateProject(projectId, requestDto);
+            @RequestBody CreateProjectRequestDto requestDto,
+            Authentication authentication) {
+        Long userId = securityUtil.getUserIdFromAuthentication(authentication);
+        ProjectResponseDto response = projectService.updateProject(projectId, requestDto, userId);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{projectId}")
-    public ResponseEntity<Void> deleteProject(@PathVariable Long projectId) {
-        projectService.deleteProject(projectId);
+    public ResponseEntity<Void> deleteProject(
+            @PathVariable Long projectId,
+            Authentication authentication) {
+        Long userId = securityUtil.getUserIdFromAuthentication(authentication);
+        projectService.deleteProject(projectId, userId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/invite/{inviteCode}")
     public ResponseEntity<ProjectResponseDto> getProjectByInviteCode(@PathVariable String inviteCode) {
         ProjectResponseDto response = projectService.getProjectByInviteCode(inviteCode);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<List<ProjectResponseDto>> getMyProjects(Authentication authentication) {
+        Long userId = securityUtil.getUserIdFromAuthentication(authentication);
+        List<ProjectResponseDto> response = projectService.getProjectsByUserId(userId);
         return ResponseEntity.ok(response);
     }
 }

@@ -1,5 +1,7 @@
 package com.example.demo.project.service;
 
+import com.example.demo.common.CustomException;
+import com.example.demo.common.ErrorMessage;
 import com.example.demo.project.dto.request.AddProjectMemberRequestDto;
 import com.example.demo.project.dto.response.ProjectMemberResponseDto;
 import com.example.demo.project.entity.Project;
@@ -26,13 +28,12 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public ProjectMemberResponseDto addMember(AddProjectMemberRequestDto requestDto) {
         projectRepository.findById(requestDto.getProjectId())
-            .orElseThrow(() -> new RuntimeException("프로젝트를 찾을 수 없습니다. (projectId: " + requestDto.getProjectId() + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.PROJECT_NOT_FOUND));
 
         if (projectMemberRepository.existsByProjectIdAndUserId(requestDto.getProjectId(), requestDto.getUserId())) {
-            throw new RuntimeException("이미 프로젝트 멤버입니다. (projectId: " + requestDto.getProjectId() + ", userId: " + requestDto.getUserId() + ")");
+            throw new CustomException(ErrorMessage.PROJECT_MEMBER_ALREADY_EXISTS);
         }
 
-        // 멤버 생성 및 저장
         ProjectMember member = ProjectMember.create(requestDto.getProjectId(), requestDto.getUserId());
         ProjectMember savedMember = projectMemberRepository.save(member);
 
@@ -43,7 +44,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Override
     public ProjectMemberResponseDto getMember(Long projectId, Long userId) {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
-            .orElseThrow(() -> new RuntimeException("프로젝트 멤버를 찾을 수 없습니다. (projectId: " + projectId + ", userId: " + userId + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.PROJECT_MEMBER_NOT_FOUND));
 
         return toResponseDto(member);
     }
@@ -73,7 +74,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public void removeMember(Long projectId, Long userId) {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
-            .orElseThrow(() -> new RuntimeException("프로젝트 멤버를 찾을 수 없습니다. (projectId: " + projectId + ", userId: " + userId + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.PROJECT_MEMBER_NOT_FOUND));
 
         projectMemberRepository.delete(member);
     }
@@ -83,10 +84,10 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Transactional
     public ProjectMemberResponseDto joinByInviteCode(String inviteCode, Long userId) {
         Project project = projectRepository.findByInviteCode(inviteCode)
-            .orElseThrow(() -> new RuntimeException("프로젝트를 찾을 수 없습니다. (inviteCode: " + inviteCode + ")"));
+            .orElseThrow(() -> new CustomException(ErrorMessage.INVALID_INVITE_CODE));
 
         if (projectMemberRepository.existsByProjectIdAndUserId(project.getId(), userId)) {
-            throw new RuntimeException("이미 프로젝트 멤버입니다.");
+            throw new CustomException(ErrorMessage.PROJECT_MEMBER_ALREADY_EXISTS);
         }
 
         // 멤버 생성 및 저장
@@ -94,6 +95,14 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         ProjectMember savedMember = projectMemberRepository.save(member);
 
         return toResponseDto(savedMember);
+    }
+
+    // 프로젝트 멤버 여부 검증
+    @Override
+    public void validateProjectMember(Long projectId, Long userId) {
+        if (!projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)) {
+            throw new CustomException(ErrorMessage.PROJECT_MEMBER_NOT_AUTHORIZED);
+        }
     }
 
     private ProjectMemberResponseDto toResponseDto(ProjectMember member) {
